@@ -1,0 +1,24 @@
+# virtualenvs / dependencies
+.venv/
+venv/
+env/
+node_modules/
+# build output
+build/
+dist/
+*.egg-info/
+*.so
+*.pyd
+# caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+# secrets / local config
+.env
+.env.*
+!.env.example
+# generated reports
+reports/

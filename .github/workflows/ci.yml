@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+        backend: [auto, numpy]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+        env:
+          EVALFORGE_BACKEND: ${{ matrix.backend }}
+      - run: python benchmarks/bench.py --n 2000 --reps 500 --repeat 1
+      - run: python -m evalforge report --out reports --n-boot 500 --n-perm 1000
+      - uses: actions/upload-artifact@v4
+        if: matrix.backend == 'auto' && matrix.python == '3.11'
+        with:
+          name: reports
+          path: reports/

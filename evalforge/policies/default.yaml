@@ -1,0 +1,73 @@
+# EvalForge default deployment policy.
+# Each rule: metric, stat (point | ci_lower | ci_upper | p_value), op, threshold, on_fail (stop | iterate).
+# Verdict = most severe failed rule: STOP > ITERATE > SHIP.
+# Rules on unavailable metrics (e.g. *_delta without a baseline) are reported as skipped.
+name: default
+description: Conservative gate - judge on the lower confidence bound, not the point estimate.
+rules:
+  - id: enough-data
+    description: Too few evaluation samples to support any conclusion.
+    metric: n_eval
+    op: ">="
+    threshold: 50
+    on_fail: stop
+
+  - id: accuracy-hard-floor
+    description: Even the optimistic end of the CI is unacceptable.
+    metric: accuracy
+    stat: ci_upper
+    op: ">="
+    threshold: 0.80
+    on_fail: stop
+
+  - id: accuracy-lower-bound
+    description: We must be 95% sure accuracy is at least 90%.
+    metric: accuracy
+    stat: ci_lower
+    op: ">="
+    threshold: 0.90
+    on_fail: iterate
+
+  - id: f1-lower-bound
+    metric: macro_f1
+    stat: ci_lower
+    op: ">="
+    threshold: 0.88
+    on_fail: iterate
+
+  - id: calibration
+    description: Confidence scores must be trustworthy (ECE point estimate).
+    metric: ece
+    op: "<="
+    threshold: 0.08
+    on_fail: iterate
+
+  - id: no-regression
+    description: Candidate must not be significantly worse than the baseline.
+    metric: accuracy_delta
+    stat: ci_upper
+    op: ">="
+    threshold: 0.0
+    on_fail: stop
+
+  - id: no-significant-failure-slices
+    description: No subgroup may be significantly worse after multiple-testing correction.
+    metric: significant_slices
+    op: "<="
+    threshold: 0
+    on_fail: iterate
+
+  - id: slice-gap-severity
+    description: A significant failure slice that is also huge is a blocker.
+    metric: worst_slice_gap
+    stat: ci_lower
+    op: "<="
+    threshold: 0.25
+    on_fail: stop
+
+  - id: input-drift
+    description: No feature may have drifted significantly (KS test, BH-corrected) with PSI above the alert level.
+    metric: drifted_features
+    op: "<="
+    threshold: 0
+    on_fail: iterate

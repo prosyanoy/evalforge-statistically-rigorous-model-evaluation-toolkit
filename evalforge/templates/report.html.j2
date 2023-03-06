@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EvalForge - {{ title }}</title>
+<style>
+ body{font:15px/1.5 system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#1d2330}
+ h1{margin-bottom:.2rem} h2{margin-top:2rem;border-bottom:1px solid #e3e6ea;padding-bottom:.3rem}
+ .muted{color:#667085} table{border-collapse:collapse;width:100%;margin:.5rem 0}
+ th,td{padding:.35rem .6rem;border-bottom:1px solid #eceff3;text-align:left;font-variant-numeric:tabular-nums}
+ th{font-weight:600;background:#f6f7f9}
+ .verdict{display:inline-block;padding:.4rem 1rem;border-radius:6px;font-weight:700;font-size:1.3rem;color:#fff}
+ .SHIP{background:#1f8a4c}.ITERATE{background:#b7791f}.STOP{background:#c0392b}
+ .pass{color:#1f8a4c}.fail{color:#c0392b;font-weight:600}.skipped{color:#8a8f98}
+ img{max-width:100%} .row{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start}
+</style></head><body>
+<h1>{{ title }}</h1>
+<p class="muted">{{ description }}{% if candidate_name %} Candidate: <b>{{ candidate_name }}</b>{% endif %}{% if baseline_name %}, baseline: <b>{{ baseline_name }}</b>{% endif %}.
+ Policy: <code>{{ r.decision.policy_name }}</code> &middot; backend: <code>{{ r.backend }}</code> &middot; {{ r.config.n_boot }} bootstrap / {{ r.config.n_perm }} permutation resamples &middot; seed {{ r.config.seed }}</p>
+
+<h2>Recommendation</h2>
+<p><span class="verdict {{ r.decision.verdict }}">{{ r.decision.verdict }}</span></p>
+<p>{{ verdict_text }}</p>
+<ul>{% for s in summary %}<li>{{ s }}</li>{% endfor %}</ul>
+
+<h2>Policy rules</h2>
+<table><tr><th>Rule</th><th>Check</th><th>If failed</th><th>Result</th></tr>
+{% for o in r.decision.outcomes %}<tr><td>{{ o.rule.id }}{% if o.rule.description %}<br><span class="muted">{{ o.rule.description }}</span>{% endif %}</td>
+<td>{{ o.message }}</td><td>{{ o.rule.on_fail }}</td><td class="{{ o.status }}">{{ o.status }}</td></tr>{% endfor %}</table>
+
+<h2>Metrics with {{ (r.config.confidence * 100)|int }}% bootstrap confidence intervals</h2>
+<div class="row"><div>
+<table><tr><th>Metric</th><th>Point</th><th>CI</th>{% if r.baseline_metrics %}<th>Baseline</th>{% endif %}</tr>
+{% for k, m in r.metrics.items() %}<tr><td>{{ labels[k] }}</td><td>{{ '%.4f'|format(m.point) }}</td><td>[{{ '%.4f'|format(m.lo) }}, {{ '%.4f'|format(m.hi) }}]</td>
+{% if r.baseline_metrics %}<td>{% if k in r.baseline_metrics %}{{ '%.4f'|format(r.baseline_metrics[k].point) }}{% endif %}</td>{% endif %}</tr>{% endfor %}</table>
+<img alt="Metrics with confidence intervals" src="data:image/png;base64,{{ plots.metrics }}"></div></div>
+
+<h2>Calibration</h2>
+<div class="row"><img alt="Reliability diagram" src="data:image/png;base64,{{ plots.reliability }}">
+<p style="max-width:380px">The reliability diagram compares predicted confidence with observed accuracy. Points below the diagonal mean the model is over-confident, above it under-confident. ECE = {{ '%.4f'|format(r.metrics.ece.point) }} (CI {{ '%.4f'|format(r.metrics.ece.lo) }}-{{ '%.4f'|format(r.metrics.ece.hi) }}).</p></div>
+
+{% if r.comparison %}<h2>Paired comparison with baseline</h2>
+<table><tr><th>Metric</th><th>Candidate</th><th>Baseline</th><th>Delta</th><th>CI</th><th>Permutation p</th></tr>
+{% for k, c in r.comparison.items() %}<tr><td>{{ labels[k] }}</td><td>{{ '%.4f'|format(c.candidate) }}</td><td>{{ '%.4f'|format(c.baseline) }}</td><td>{{ '%+.4f'|format(c.delta) }}</td>
+<td>[{{ '%+.4f'|format(c.lo) }}, {{ '%+.4f'|format(c.hi) }}]</td><td>{{ '%.4f'|format(c.p_value) }}</td></tr>{% endfor %}</table>
+<p class="muted">Brier is lower-is-better, so a negative delta favours the candidate.</p>
+<img alt="Metric deltas" src="data:image/png;base64,{{ plots.deltas }}">{% endif %}
+
+{% if r.slices %}<h2>Failure slices</h2>
+<p class="muted">{{ r.slices.n_tested }} candidate slices tested (conjunctions of up to {{ r.config.slice_depth }} feature conditions); one-sided Fisher exact test, {{ r.slices.method.upper() }}-adjusted at alpha={{ r.slices.alpha }}. Overall error rate {{ '%.1f'|format(r.slices.overall_error_rate * 100) }}%.</p>
+{% if r.slices.slices %}<table><tr><th>Slice</th><th>n</th><th>Error</th><th>Rest</th><th>Gap [95% CI]</th><th>Adj. p</th></tr>
+{% for s in r.slices.slices %}<tr><td>{{ s.description }}</td><td>{{ s.n }}</td><td>{{ '%.1f'|format(s.error_rate * 100) }}%</td><td>{{ '%.1f'|format(s.complement_error_rate * 100) }}%</td>
+<td>{{ '%+.1f'|format(s.gap * 100) }} pp [{{ '%+.1f'|format(s.gap_lo * 100) }}, {{ '%+.1f'|format(s.gap_hi * 100) }}]</td><td>{{ '%.4f'|format(s.p_adjusted) }}</td></tr>{% endfor %}</table>
+<img alt="Slice error gaps" src="data:image/png;base64,{{ plots.slices }}">
+{% else %}<p>No statistically significant failure slices.</p>{% endif %}{% endif %}
+
+{% if r.drift %}<h2>Feature drift (reference vs. evaluation data)</h2>
+<p class="muted">{{ r.drift.n_drifted }} drifted feature(s); a feature is flagged when its KS test is significant after BH correction and PSI &ge; 0.25.</p>
+<img alt="Feature drift PSI" src="data:image/png;base64,{{ plots.drift }}">{% endif %}
+
+<p class="muted" style="margin-top:3rem">Generated by EvalForge. Intervals are percentile bootstrap; p-values are permutation tests with the +1 correction.</p>
+</body></html>

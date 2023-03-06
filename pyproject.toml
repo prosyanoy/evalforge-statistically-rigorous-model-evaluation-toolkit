@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64", "wheel", "pybind11>=2.11"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evalforge"
+version = "0.1.0"
+description = "Statistically rigorous model evaluation: bootstrap CIs, slice discovery, calibration, drift and ship/iterate/stop decisions."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scikit-learn>=1.3",
+  "scipy>=1.10",
+  "jinja2>=3.1",
+  "matplotlib>=3.7",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+evalforge = "evalforge.cli:main"
+
+[tool.setuptools]
+packages = ["evalforge"]
+
+[tool.setuptools.package-data]
+evalforge = ["templates/*.j2", "policies/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

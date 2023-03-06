@@ -1,0 +1,12 @@
+# Stricter variant: requires the candidate to beat the baseline significantly and tolerates no drift.
+name: strict
+description: For high-stakes deployments.
+rules:
+  - {id: enough-data, metric: n_eval, op: ">=", threshold: 200, on_fail: stop}
+  - {id: accuracy-lower-bound, metric: accuracy, stat: ci_lower, op: ">=", threshold: 0.95, on_fail: iterate}
+  - {id: f1-lower-bound, metric: macro_f1, stat: ci_lower, op: ">=", threshold: 0.93, on_fail: iterate}
+  - {id: calibration, metric: ece, op: "<=", threshold: 0.03, on_fail: iterate}
+  - {id: beats-baseline, metric: accuracy_delta, stat: p_value, op: "<=", threshold: 0.05, on_fail: iterate}
+  - {id: no-regression, metric: accuracy_delta, stat: ci_upper, op: ">=", threshold: 0.0, on_fail: stop}
+  - {id: no-failure-slices, metric: significant_slices, op: "<=", threshold: 0, on_fail: stop}
+  - {id: no-drift, metric: max_psi, op: "<=", threshold: 0.10, on_fail: iterate}
